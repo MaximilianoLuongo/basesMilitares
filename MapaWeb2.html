@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Instalaciones Militares de la República Argentina</title>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+    #mapa {
+      height: 100%;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+<h3 class="titulo-militar">Mapa nacional de instituciones militares</h3>
+<style>
+    .titulo-militar {
+        text-align: center;
+        font-family: 'Arial Black', 'Impact', 'Segoe UI', Arial, sans-serif;
+        color: #6e7a26;
+        letter-spacing: 2px;
+        margin-top: 10px;
+        margin-bottom: 10px;
+        text-shadow: 1px 1px 2px #333333;
+    }
+</style>
+  <div id="mapa"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+  <script>
+    // Inicializar mapa
+    var map = L.map('mapa').setView([-39.0, -66.0], 4.5);
+
+  // Añadir capa de mapas base
+  var baseMap =
+  //L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+	//L.tileLayer('https://{s}.tile.thunderforest.com/pioneer/{z}/{x}/{y}{r}.png?apikey=db5ae1f5778a448ca662554581f283c5', {
+	//L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+	//L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+	//L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+	L.tileLayer('https://wms.ign.gob.ar/geoserver/gwc/service/tms/1.0.0/capabaseargenmap@EPSG%3A3857@png/{z}/{x}/{-y}.png',{
+	//L.tileLayer('http://ideconurbano.ungs.edu.ar/geoserver/gwc/service/gmaps?layers=proyectos:_1_100k&zoom={z}&x={x}&y={y}&format=image/png8',{
+  //L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 20,
+      attribution: '© OpenStreetMap contributors',
+      opacity: 0.8
+    }).addTo(map);
+
+    // Capa WMS del IGN (Provincias)
+    var provincias = L.tileLayer.wms("https://wms.ign.gob.ar/geoserver/ows?", {
+        layers: "ign:provincia",
+        format: "image/png",
+        transparent: true,
+        version: "1.3.0",
+        attribution: "Instituto Geográfico Nacional (IGN)"
+    }).addTo(map);
+
+    // Función para asignar íconos
+    function getIcon(fuerza) {
+      let iconUrl = "ejercito.png";
+      if (fuerza === "Armada Argentina") iconUrl = "armada.png";
+      if (fuerza === "Fuerza Aérea Argentina") iconUrl = "fuerzaAerea.png";
+
+      return L.icon({
+        iconUrl: iconUrl,
+        iconSize: [40, 40],
+        iconAnchor: [20, 40],
+        popupAnchor: [0, -40]
+      });
+    }
+
+    // Crear grupo de clústeres
+    var markersCluster = L.markerClusterGroup();
+
+    // Cargar GeoJSON
+    fetch("instMilitares.geojson")
+      .then(response => response.json())
+      .then(data => {
+        var instMilitares = L.geoJSON(data, {
+          pointToLayer: function (feature, latlng) {
+            var fuerza = feature.properties.fdc;
+            return L.marker(latlng, { icon: getIcon(fuerza) });
+          },
+          onEachFeature: function (feature, layer) {
+            let props = feature.properties;
+            let popupContent = `<b>${props.fna || ''}</b><br>
+                                <i>${props.fdc || ''}</i><br>
+                                ${props.gna || ''} ${props.nam || ''}`;
+            layer.bindPopup(popupContent);
+          }
+        });
+
+        // Agregar capa al clúster
+        markersCluster.addLayer(instMilitares);
+        map.addLayer(markersCluster);
+
+        // Control de capas
+        L.control.layers(
+          { "Mapa Base": baseMap, "Provincias IGN": provincias },
+          { "Instituciones Militares (Cluster)": markersCluster }
+        ).addTo(map);
+      });
+  </script>
+</body>
+</html>
